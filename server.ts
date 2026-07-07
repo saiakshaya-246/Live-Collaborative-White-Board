@@ -68,7 +68,7 @@ async function startServer() {
     }
   });
 
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Health check API
   app.get('/api/health', (req, res) => {
