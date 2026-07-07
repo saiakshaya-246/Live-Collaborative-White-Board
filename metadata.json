@@ -1,0 +1,6 @@
+{
+  "name": "Collaborative Whiteboard",
+  "description": "A real-time collaborative whiteboard with live cursors, shape tools, canvas chat, and simultaneous drawing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
