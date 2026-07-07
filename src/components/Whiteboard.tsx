@@ -5,7 +5,7 @@ import {
   Square, Circle, Minus, Type, Pencil, Brush, Eraser, 
   Trash2, Undo2, Download, Send, MessageSquare, ChevronRight, 
   ChevronLeft, Copy, Check, Users, ShieldAlert, Sparkles, HelpCircle,
-  Info
+  Info, Share2, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -64,6 +64,27 @@ export default function Whiteboard({ name, color, roomId, onLeave }: WhiteboardP
   const [showHelp, setShowHelp] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'chat' | 'layers'>('chat');
   const [hoverCoords, setHoverCoords] = useState<{ x: number; y: number } | null>(null);
+
+  // Share popover status
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [copiedDev, setCopiedDev] = useState(false);
+  const [copiedPre, setCopiedPre] = useState(false);
+
+  // Click outside to close share menu
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const container = document.getElementById('share-menu-container');
+      if (container && !container.contains(e.target as Node)) {
+        setShowShareMenu(false);
+      }
+    };
+    if (showShareMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showShareMenu]);
 
   // 1. Initialize Socket Connection and Listeners
   useEffect(() => {
@@ -493,11 +514,20 @@ export default function Whiteboard({ name, color, roomId, onLeave }: WhiteboardP
     setShowConfirmClear(false);
   };
 
-  const handleCopyLink = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+  const handleCopyLinkType = (type: 'public' | 'dev') => {
+    let origin = window.location.origin;
+    if (type === 'public' && origin.includes('ais-dev-')) {
+      origin = origin.replace('ais-dev-', 'ais-pre-');
+    }
+    const shareUrl = `${origin}${window.location.pathname}?room=${roomId}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (type === 'public') {
+        setCopiedPre(true);
+        setTimeout(() => setCopiedPre(false), 2000);
+      } else {
+        setCopiedDev(true);
+        setTimeout(() => setCopiedDev(false), 2000);
+      }
     });
   };
 
@@ -574,23 +604,113 @@ export default function Whiteboard({ name, color, roomId, onLeave }: WhiteboardP
         </div>
 
         {/* Room Actions / Share controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative" id="share-menu-container">
           <button
-            onClick={handleCopyLink}
-            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border border-slate-200 shadow-sm active:scale-95 cursor-pointer"
+            onClick={() => setShowShareMenu(!showShareMenu)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border shadow-sm active:scale-95 cursor-pointer ${
+              showShareMenu 
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 ring-1 ring-indigo-200' 
+                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200'
+            }`}
+            id="share-button"
           >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-600">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-400" />
-                <span>Copy Link</span>
-              </>
-            )}
+            <Share2 className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Share Room</span>
           </button>
+
+          <AnimatePresence>
+            {showShareMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-12 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/50 p-4 z-50 flex flex-col gap-4 text-left"
+                id="share-popover"
+              >
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    Share Workspace
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-normal font-medium">
+                    Invite others to join you in drawing on this whiteboard in real time!
+                  </p>
+                </div>
+
+                <div className="h-[1px] bg-slate-100" />
+
+                {/* Public Link (Anyone with Link) */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-600">Public Link (For Others)</span>
+                    <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Anyone with link</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 -mt-1 leading-normal">
+                    Share this link with collaborators. They can open it immediately from any browser.
+                  </p>
+                  <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] font-mono text-slate-400 truncate flex-1 pl-1">
+                      {`${window.location.origin.includes('ais-dev-') ? window.location.origin.replace('ais-dev-', 'ais-pre-') : window.location.origin}${window.location.pathname}?room=${roomId}`}
+                    </span>
+                    <button
+                      onClick={() => handleCopyLinkType('public')}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1"
+                    >
+                      {copiedPre ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Developer Link (Owner Only) */}
+                {window.location.origin.includes('ais-dev-') && (
+                  <>
+                    <div className="h-[1px] bg-slate-100" />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-600">Owner Link (For You)</span>
+                        <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-right">Only You</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 -mt-1 leading-normal">
+                        Access the development environment using your registered owner email.
+                      </p>
+                      <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-mono text-slate-400 truncate flex-1 pl-1">
+                          {`${window.location.origin}${window.location.pathname}?room=${roomId}`}
+                        </span>
+                        <button
+                          onClick={() => handleCopyLinkType('dev')}
+                          className="bg-slate-700 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1"
+                        >
+                          {copiedDev ? (
+                            <>
+                              <Check className="w-3 h-3" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="h-4 w-[1px] bg-slate-200" />
 
